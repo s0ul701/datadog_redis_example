@@ -1,0 +1,44 @@
+version: '3.3'
+services:
+  redis:
+    build:
+      context: ./redis
+      dockerfile: ./Dockerfile
+    ports:
+      - 6379:6379
+    volumes:
+      - ./redis_logs:/redis_logs
+    labels:
+      com.datadoghq.ad.check_names: '["redisdb"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: >-
+        [{
+          "host": "%%host%%",
+          "port": "%%port%%",
+          "password": "%%env_REDIS_PASSWORD%%",
+          "collect_client_metrics": "true",
+          "command_stats": "true"
+        }]
+      com.datadoghq.ad.logs: >-
+        [{
+          "type": "file",
+          "source": "redis",
+          "service": "redis",
+          "path": "/redis_logs/redis.log",
+          "log_processing_rules": [{
+            "type": "multi_line",
+            "name": "logs",
+            "pattern": "\\d{1}:\\w{1}\\s{1}"
+          }]
+        }]
+
+  datadog-agent:
+    image: datadog/agent:7.26.0-jmx
+    env_file:
+      - ./datadog.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /opt/datadog-agent/run:/opt/datadog-agent/run:rw
+      - ./redis_logs:/redis_logs
